@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BÉ VUI HỌC VẦN - CHINH PHỤC 3 CHẶNG</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            font-family: 'Nunito', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            background: linear-gradient(135deg, #fff0f5 0%, #e6f9ff 50%, #f0fff0 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Custom Drag & Drop & Animation Styles */
+        .game-card {
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+        }
+
+        .draggable-item {
+            cursor: grab;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            touch-action: none;
+        }
+
+        .draggable-item:active, .draggable-item.dragging {
+            cursor: grabbing;
+            transform: scale(1.1) rotate(3deg);
+            z-index: 1000;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+        }
+
+        .drop-zone {
+            transition: all 0.2s ease;
+        }
+
+        .drop-zone.hovered {
+            transform: scale(1.05);
+            border-color: #ec4899 !important;
+            background-color: #fce7f3 !important;
+        }
+
+        /* Slot Filled Style */
+        .drop-zone.filled {
+            background-color: #dcfce7 !important;
+            border-color: #22c55e !important;
+            border-style: solid !important;
+        }
+
+        /* Cloud Animation */
+        @keyframes floatCloud {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+        }
+
+        .animate-float {
+            animation: floatCloud 3s ease-in-out infinite;
+        }
+
+        /* Truck Shake / Drive Animation */
+        @keyframes driveIn {
+            0% { transform: translateX(-100%); opacity: 0; }
+            100% { transform: translateX(0); opacity: 1; }
+        }
+
+        .truck-enter {
+            animation: driveIn 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        /* Confetti / Stars Canvas */
+        #effects-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        .btn-bounce {
+            transition: transform 0.1s ease;
+        }
+        .btn-bounce:active {
+            transform: scale(0.95);
+        }
+
+        /* Custom Scrollbar for small containers */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #f472b6;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen justify-between text-gray-800">
+
+    <canvas id="effects-canvas"></canvas>
+
+    <!-- HEADER / NAVIGATION BAR -->
+    <header class="bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b-4 border-pink-200 px-4 py-3 shadow-sm">
+        <div class="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-full bg-pink-400 flex items-center justify-center text-white text-xl shadow">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                </div>
+                <div>
+                    <h1 class="font-extrabold text-pink-600 text-lg md:text-xl leading-tight">BÉ VUI HỌC VẦN</h1>
+                    <p class="text-xs font-semibold text-emerald-600" id="student-display-name">Học sinh: ---</p>
+                </div>
+            </div>
+
+            <!-- Progress & Score -->
+            <div id="game-status-bar" class="hidden flex items-center space-x-4 md:space-x-6">
+                <!-- Current Stage Badge -->
+                <div class="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs md:text-sm font-bold border border-emerald-300">
+                    <span id="stage-badge-text">Chặng 1</span>
+                </div>
+
+                <!-- Score Display -->
+                <div class="flex items-center space-x-1 bg-amber-100 border border-amber-300 px-3 py-1 rounded-full shadow-sm">
+                    <i class="fa-solid fa-star text-amber-500 text-base md:text-lg animate-bounce"></i>
+                    <span class="font-black text-amber-700 text-sm md:text-base" id="score-text">0</span>
+                    <span class="text-xs text-amber-600 font-bold">điểm</span>
+                </div>
+
+                <!-- Mute / Unmute Button -->
+                <button id="sound-toggle-btn" class="w-9 h-9 rounded-full bg-sky-100 text-sky-600 border border-sky-300 flex items-center justify-center hover:bg-sky-200 transition">
+                    <i class="fa-solid fa-volume-high" id="sound-icon"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div id="progress-container" class="hidden max-w-5xl mx-auto mt-2 bg-gray-200 h-2.5 rounded-full overflow-hidden">
+            <div id="progress-bar" class="bg-gradient-to-r from-pink-400 via-purple-400 to-emerald-400 h-full w-0 transition-all duration-500"></div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="flex-grow flex items-center justify-center p-3 md:p-6">
+
+        <!-- 1. START SCREEN -->
+        <section id="screen-start" class="w-full max-w-2xl bg-white/90 backdrop-blur rounded-3xl p-6 md:p-10 border-4 border-pink-300 game-card text-center space-y-6">
+            <div class="relative inline-block">
+                <div class="text-5xl md:text-6xl text-pink-500 font-black tracking-wide drop-shadow-md">
+                    BÉ VUI HỌC VẦN
+                </div>
+                <div class="text-lg md:text-xl font-bold text-emerald-600 mt-1">
+                    Chinh phục 3 chặng – Học vui, nhớ giỏi!
+                </div>
+                <!-- Author / School Copyright Tag -->
+                <div class="mt-2 inline-block bg-pink-100 text-pink-700 px-4 py-1 rounded-full text-sm font-extrabold border border-pink-300 shadow-sm">
+                    <i class="fa-solid fa-award text-pink-500 mr-1"></i> Cô Mai Ly - TH Sông Cầu
+                </div>
+            </div>
+
+            <!-- Cute Mascot & Greeting -->
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4 bg-pink-50 p-4 rounded-2xl border-2 border-pink-200">
+                <div class="w-24 h-24 bg-pink-200 rounded-full flex items-center justify-center text-5xl shadow-inner flex-shrink-0 animate-bounce">
+                    🐱
+                </div>
+                <div class="text-left">
+                    <div class="bg-white p-3 rounded-xl border border-pink-200 text-gray-700 font-semibold text-sm md:text-base relative shadow-sm">
+                        “Xin chào các bạn! Hãy cùng mình chinh phục 3 chặng thử thách Tiếng Việt nhé!”
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Student Name -->
+            <div class="space-y-2 max-w-md mx-auto text-left">
+                <label for="input-student-name" class="block font-bold text-gray-700 text-sm md:text-base">
+                    <i class="fa-solid fa-user-pen text-pink-500 mr-1"></i> Tên của bé:
+                </label>
+                <input type="text" id="input-student-name" placeholder="Con hãy nhập tên của mình..." 
+                       class="w-full px-5 py-3 text-lg rounded-2xl border-2 border-pink-300 focus:border-pink-500 focus:ring-4 focus:ring-pink-100 outline-none transition text-center font-bold text-pink-600">
+                <p id="name-error-msg" class="text-xs text-red-500 font-bold hidden text-center">
+                    <i class="fa-solid fa-circle-exclamation"></i> Vui lòng nhập tên trước khi bắt đầu nhé!
+                </p>
+            </div>
+
+            <!-- Instruction Box -->
+            <div class="text-xs md:text-sm text-gray-600 bg-sky-50 p-3 rounded-xl border border-sky-200 text-left">
+                <span class="font-bold text-sky-700"><i class="fa-solid fa-circle-info"></i> Hướng dẫn:</span>
+                Bé kéo các chữ cái hoặc chú ong vào đúng vị trí để tích điểm và mở khóa các chặng tiếp theo nhé!
+            </div>
+
+            <!-- Start Button -->
+            <div>
+                <button id="btn-start" class="btn-bounce bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 text-white font-black text-xl md:text-2xl px-10 py-4 rounded-full shadow-lg border-b-4 border-rose-700 w-full sm:w-auto tracking-wide">
+                    BẮT ĐẦU CHƠI <i class="fa-solid fa-circle-play ml-2"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- 2. STAGE 1: VEHICLE CREATING SOUNDS -->
+        <section id="screen-stage-1" class="hidden w-full max-w-4xl bg-white/90 backdrop-blur rounded-3xl p-4 md:p-8 border-4 border-emerald-300 game-card text-center space-y-6">
+            <div class="flex justify-between items-center border-b pb-3 border-emerald-100">
+                <div class="text-left">
+                    <span class="text-xs font-extrabold text-emerald-600 uppercase tracking-wider">Chặng 1</span>
+                    <h2 class="text-xl md:text-2xl font-black text-emerald-700">KÉO PHỤ ÂM VÀ VẦN LÊN XE TẠO TIẾNG</h2>
+                </div>
+                <div class="bg-emerald-50 text-emerald-700 font-bold px-3 py-1 rounded-xl text-sm border border-emerald-200" id="stage1-counter">
+                    Câu 1/8
+                </div>
+            </div>
+
+            <!-- Question Instruction Prompt -->
+            <div class="bg-amber-50 border-2 border-amber-200 p-3 rounded-2xl text-amber-800 font-bold text-base md:text-lg flex items-center justify-center gap-2 shadow-sm">
+                <span> Bé hãy ghép thành tiếng: <span id="s1-target-word" class="text-pink-600 text-2xl font-black underline">???</span></span>
+                <button id="s1-btn-speak-word" class="w-8 h-8 rounded-full bg-pink-100 text-pink-600 border border-pink-300 flex items-center justify-center hover:bg-pink-200 transition ml-2">
+                    <i class="fa-solid fa-volume-high"></i>
+                </button>
+            </div>
+
+            <!-- Truck Stage Visual -->
+            <div class="relative bg-gradient-to-b from-sky-100 to-emerald-50 rounded-2xl p-6 border-2 border-sky-200 min-h-[220px] flex items-center justify-center overflow-hidden">
+                <!-- Background decoration -->
+                <div class="absolute top-2 left-4 text-3xl opacity-30">☁️</div>
+                <div class="absolute top-4 right-10 text-4xl opacity-30">☁️</div>
+                
+                <!-- Truck Container -->
+                <div id="truck-element" class="truck-enter flex items-center justify-center">
+                    <div class="relative flex items-center bg-rose-500 rounded-3xl p-4 border-4 border-rose-700 shadow-2xl">
+                        <!-- Cargo Bed (Drop Slots) -->
+                        <div class="bg-amber-100 rounded-2xl p-4 border-3 border-dashed border-amber-400 flex items-center gap-2 min-w-[240px] justify-center mr-3 shadow-inner">
+                            <!-- Consonant Drop Zone -->
+                            <div id="consonant-slot" class="drop-zone w-16 h-16 md:w-20 md:h-20 bg-white rounded-2xl border-4 border-pink-400 border-dashed flex items-center justify-center text-2xl md:text-3xl font-black text-pink-600 shadow-sm" data-slot-type="consonant">
+                                ?
+                            </div>
+                            <span class="text-2xl font-black text-amber-800">+</span>
+                            <!-- Rhyme Drop Zone -->
+                            <div id="rhyme-slot" class="drop-zone w-16 h-16 md:w-20 md:h-20 bg-white rounded-2xl border-4 border-emerald-400 border-dashed flex items-center justify-center text-2xl md:text-3xl font-black text-emerald-700 shadow-sm" data-slot-type="rhyme">
+                                ?
+                            </div>
+                        </div>
+
+                        <!-- Truck Cabin -->
+                        <div class="bg-rose-600 w-16 h-20 rounded-r-2xl border-l-2 border-rose-700 flex flex-col justify-between p-1">
+                            <div class="w-10 h-8 bg-sky-200 rounded-md border-2 border-sky-400 mx-auto mt-1 flex items-center justify-center text-xs">🐶</div>
+                            <div class="w-4 h-4 bg-yellow-300 rounded-full border border-yellow-500 ml-auto"></div>
+                        </div>
+
+                        <!-- Truck Wheels -->
+                        <div class="absolute -bottom-5 left-8 w-10 h-10 bg-gray-800 rounded-full border-4 border-gray-300 flex items-center justify-center">
+                            <div class="w-3 h-3 bg-white rounded-full"></div>
+                        </div>
+                        <div class="absolute -bottom-5 right-8 w-10 h-10 bg-gray-800 rounded-full border-4 border-gray-300 flex items-center justify-center">
+                            <div class="w-3 h-3 bg-white rounded-full"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Draggable Options -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-pink-50 p-3 rounded-2xl border border-pink-200">
+                    <p class="text-xs font-bold text-pink-700 mb-2">Thẻ phụ âm đầu:</p>
+                    <div id="s1-consonant-options" class="flex flex-wrap justify-center gap-2 md:gap-3"></div>
+                </div>
+                <div class="bg-emerald-50 p-3 rounded-2xl border border-emerald-200">
+                    <p class="text-xs font-bold text-emerald-700 mb-2">Thẻ vần:</p>
+                    <div id="s1-rhyme-options" class="flex flex-wrap justify-center gap-2 md:gap-3"></div>
+                </div>
+            </div>
+
+            <!-- Feedback Message -->
+            <div id="s1-feedback" class="h-10 flex items-center justify-center font-extrabold text-lg"></div>
+
+            <!-- Next Stage Action -->
+            <div id="s1-next-box" class="hidden">
+                <button id="btn-to-stage-2" class="btn-bounce bg-emerald-500 hover:bg-emerald-600 text-white font-black text-lg px-8 py-3 rounded-full shadow-lg border-b-4 border-emerald-700">
+                    ĐẾN CHẶNG 2 <i class="fa-solid fa-circle-arrow-right ml-2"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- 3. STAGE 2: BRING BEES TO THE RIGHT HIVES -->
+        <section id="screen-stage-2" class="hidden w-full max-w-5xl bg-white/90 backdrop-blur rounded-3xl p-4 md:p-8 border-4 border-amber-300 game-card text-center space-y-6">
+            <div class="flex justify-between items-center border-b pb-3 border-amber-100">
+                <div class="text-left">
+                    <span class="text-xs font-extrabold text-amber-600 uppercase tracking-wider">Chặng 2</span>
+                    <h2 class="text-xl md:text-2xl font-black text-amber-700">ĐƯA ONG VỀ ĐÚNG TỔ</h2>
+                </div>
+                <div class="bg-amber-50 text-amber-700 font-bold px-3 py-1 rounded-xl text-sm border border-amber-200" id="stage2-counter">
+                    Còn 0 chú ong
+                </div>
+            </div>
+
+            <!-- Instructions -->
+            <p class="text-xs md:text-sm font-bold text-gray-600 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
+                🐝 Đọc từ trên mỗi chú ong, kéo chú ong về tổ có chứa <span class="text-pink-600">VẦN</span> tương ứng nhé!
+            </p>
+
+            <!-- Hives Grid -->
+            <div id="s2-hives-container" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 md:gap-3">
+                <!-- Beehives generated by JS -->
+            </div>
+
+            <!-- Bees Area -->
+            <div class="bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 rounded-2xl p-4 border-2 border-amber-200">
+                <p class="text-xs font-bold text-amber-700 mb-3">DANH SÁCH CÁC CHÚ ONG (Kéo ong lên tổ):</p>
+                <div id="s2-bees-container" class="flex flex-wrap justify-center gap-3 min-h-[100px] items-center">
+                    <!-- Bees generated by JS -->
+                </div>
+            </div>
+
+            <!-- Feedback -->
+            <div id="s2-feedback" class="h-8 flex items-center justify-center font-extrabold text-lg"></div>
+
+            <!-- Next Stage Button -->
+            <div id="s2-next-box" class="hidden">
+                <button id="btn-to-stage-3" class="btn-bounce bg-amber-500 hover:bg-amber-600 text-white font-black text-lg px-8 py-3 rounded-full shadow-lg border-b-4 border-amber-700">
+                    ĐẾN CHẶNG 3 <i class="fa-solid fa-circle-arrow-right ml-2"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- 4. STAGE 3: CLOUD SENTENCE PUZZLE -->
+        <section id="screen-stage-3" class="hidden w-full max-w-4xl bg-white/90 backdrop-blur rounded-3xl p-4 md:p-8 border-4 border-sky-300 game-card text-center space-y-6">
+            <div class="flex justify-between items-center border-b pb-3 border-sky-100">
+                <div class="text-left">
+                    <span class="text-xs font-extrabold text-sky-600 uppercase tracking-wider">Chặng 3</span>
+                    <h2 class="text-xl md:text-2xl font-black text-sky-700">GHÉP MÂY THÀNH CÂU ĐÚNG</h2>
+                </div>
+                <div class="bg-emerald-50 text-emerald-700 font-bold px-3 py-1 rounded-xl text-sm border border-emerald-200" id="stage3-counter">
+                    Câu 1/4
+                </div>
+            </div>
+
+            <!-- Banner nhắc bé đọc to câu TRƯỚC khi bấm kiểm tra -->
+            <div class="bg-amber-100 border-2 border-amber-300 p-3 rounded-2xl text-amber-900 font-black text-sm md:text-base flex items-center justify-center gap-2 shadow-sm animate-pulse">
+                <i class="fa-solid fa-volume-high text-pink-500 text-xl"></i>
+                <span>📢 Con hãy đọc to câu vừa ghép rồi bấm nút <u>Kiểm tra câu</u> nhé!</span>
+            </div>
+
+            <p class="text-xs md:text-sm font-bold text-gray-600 bg-sky-50 p-2.5 rounded-xl border border-sky-200">
+                ☁️ Kéo các đám mây từ theo thứ tự vào các ô số bên dưới để hoàn chỉnh câu nguyên văn nhé!
+            </p>
+
+            <!-- Drop slots for clouds -->
+            <div class="bg-gradient-to-b from-sky-100 to-indigo-50 p-6 rounded-2xl border-2 border-sky-200 space-y-4">
+                <div class="text-xs font-bold text-sky-800 uppercase tracking-wide">Khung xếp câu:</div>
+                <div id="s3-sentence-slots" class="flex flex-wrap justify-center gap-2 md:gap-3 min-h-[70px] items-center">
+                    <!-- Drop slots generated dynamically -->
+                </div>
+            </div>
+
+            <!-- Source Cloud Words -->
+            <div class="space-y-2">
+                <div class="text-xs font-bold text-gray-500">Các đám mây từ (xáo trộn):</div>
+                <div id="s3-cloud-bank" class="flex flex-wrap justify-center gap-3 p-3 bg-white rounded-2xl border-2 border-dashed border-sky-200 min-h-[80px] items-center">
+                    <!-- Word Clouds generated dynamically -->
+                </div>
+            </div>
+
+            <!-- Feedback Msg -->
+            <div id="s3-feedback" class="h-8 flex items-center justify-center font-extrabold text-lg"></div>
+
+            <!-- Action Controls -->
+            <div class="flex justify-center gap-4">
+                <button id="btn-check-sentence" class="btn-bounce bg-sky-500 hover:bg-sky-600 text-white font-black text-base md:text-lg px-6 py-3 rounded-full shadow-md border-b-4 border-sky-700">
+                    <i class="fa-solid fa-circle-check mr-1"></i> KIỂM TRA CÂU
+                </button>
+                <button id="btn-reset-sentence" class="btn-bounce bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-base px-5 py-3 rounded-full border-b-4 border-gray-400">
+                    <i class="fa-solid fa-rotate-left mr-1"></i> Xếp lại
+                </button>
+            </div>
+        </section>
+
+        <!-- 5. END / SUMMARY SCREEN -->
+        <section id="screen-end" class="hidden w-full max-w-2xl bg-white/95 backdrop-blur rounded-3xl p-6 md:p-10 border-4 border-pink-400 game-card text-center space-y-6">
+            <div class="space-y-2">
+                <div class="text-4xl md:text-5xl font-black text-pink-500 animate-bounce">
+                    🎉 CHÚC MỪNG CON! 🎉
+                </div>
+                <p class="text-gray-600 font-bold text-base md:text-lg">
+                    “Con đã hoàn thành 3 chặng thử thách Tiếng Việt!”
+                </p>
+            </div>
+
+            <!-- Results Card -->
+            <div class="bg-gradient-to-b from-pink-50 to-purple-50 p-6 rounded-3xl border-2 border-pink-200 space-y-4 shadow-inner">
+                <div class="text-lg font-extrabold text-purple-800" id="end-student-name">
+                    Học sinh: Bé Ngô Văn A
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 max-w-md mx-auto">
+                    <div class="bg-white p-3 rounded-2xl border border-pink-200 shadow-sm">
+                        <div class="text-xs text-gray-500 font-bold">Tổng điểm đạt được</div>
+                        <div class="text-3xl font-black text-amber-500" id="end-total-score">0</div>
+                    </div>
+                    <div class="bg-white p-3 rounded-2xl border border-pink-200 shadow-sm">
+                        <div class="text-xs text-gray-500 font-bold">Tiến độ hoàn thành</div>
+                        <div class="text-3xl font-black text-emerald-500">100%</div>
+                    </div>
+                </div>
+
+                <!-- Teacher Greeting -->
+                <div class="bg-white p-4 rounded-2xl border-2 border-dashed border-pink-300 text-pink-700 font-extrabold text-base md:text-lg shadow-sm">
+                    “Cô Mai Ly chúc mừng con đã hoàn thành bài tập!”
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col sm:flex-row justify-center gap-4">
+                <button id="btn-replay" class="btn-bounce bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-black text-lg px-8 py-3.5 rounded-full shadow-lg border-b-4 border-teal-700">
+                    <i class="fa-solid fa-arrow-rotate-right mr-2"></i> CHƠI LẠI
+                </button>
+                <button id="btn-view-results" class="btn-bounce bg-gradient-to-r from-purple-400 to-indigo-500 hover:from-purple-500 hover:to-indigo-600 text-white font-black text-lg px-8 py-3.5 rounded-full shadow-lg border-b-4 border-indigo-700">
+                    <i class="fa-solid fa-award mr-2"></i> XEM KẾT QUẢ
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="text-center p-3 text-xs font-semibold text-gray-500 border-t border-gray-200/50 bg-white/40">
+        Trò chơi ôn tập Tiếng Việt Lớp 1 • Thiết kế giáo dục tiểu học tương tác
+    </footer>
+
+    <!-- JAVASCRIPT GAME LOGIC -->
+    <script>
+        /* ==========================================================================
+           1. EXACT LESSON DATA (STRICTLY FROM LESSON IMAGES BÀI 31, 32, 33, 34)
+           ========================================================================== */
+        
+        // Stage 1 Data: 10 Questions (10 pts each = 100 pts)
+        const STAGE1_DATA = [
+            { consonant: 'kh', rhyme: 'ăn', fullWord: 'khăn', consOptions: ['kh', 'b', 'ch', 'm'], rhymeOptions: ['ăn', 'ạn', 'ện', 'âm'] },
+            { consonant: 'b', rhyme: 'ạn', fullWord: 'bạn', consOptions: ['b', 'nh', 's', 'l'], rhymeOptions: ['ạn', 'ăn', 'ân', 'on'] },
+            { consonant: 'nh', rhyme: 'ện', fullWord: 'nhện', consOptions: ['nh', 'kh', 'd', 'n'], rhymeOptions: ['ện', 'èn', 'ên', 'in'] },
+            { consonant: 'ch', rhyme: 'ậm', fullWord: 'chậm', consOptions: ['ch', 'l', 't', 'g'], rhymeOptions: ['ậm', 'am', 'ăm', 'ân'] },
+            { consonant: 'l', rhyme: 'ân', fullWord: 'lân', consOptions: ['l', 'm', 'th', 'ch'], rhymeOptions: ['ân', 'an', 'ăn', 'ôn'] },
+            { consonant: 'm', rhyme: 'ón', fullWord: 'món', consOptions: ['m', 'n', 's', 'b'], rhymeOptions: ['ón', 'ôn', 'ơn', 'an'] },
+            { consonant: 'n', rhyme: 'ón', fullWord: 'nón', consOptions: ['n', 'm', 's', 'c'], rhymeOptions: ['ón', 'ôn', 'ơn', 'en'] },
+            { consonant: 'n', rhyme: 'ến', fullWord: 'nến', consOptions: ['n', 'b', 'd', 'nh'], rhymeOptions: ['ến', 'en', 'in', 'un'] },
+            { consonant: 'ch', rhyme: 'ăn', fullWord: 'chăn', consOptions: ['ch', 'm', 'v', 't'], rhymeOptions: ['ăn', 'ân', 'an', 'âm'] },
+            { consonant: 's', rhyme: 'ơn', fullWord: 'sơn', consOptions: ['s', 'ch', 'd', 'n'], rhymeOptions: ['ơn', 'ôn', 'on', 'en'] }
+        ];
+
+        // Rhyme categories allowed in Stage 2
+        const STAGE2_RHYMES = ['an', 'ăn', 'ân', 'on', 'ôn', 'ơn', 'en', 'ên', 'in', 'un', 'am', 'ăm', 'âm'];
+
+        // Stage 2 Bees Data: 10 Questions (10 pts each = 100 pts)
+        const STAGE2_BEES = [
+            { word: 'khăn', rhyme: 'ăn' },
+            { word: 'bạn', rhyme: 'an' },
+            { word: 'nón', rhyme: 'on' },
+            { word: 'sơn', rhyme: 'ơn' },
+            { word: 'nến', rhyme: 'ên' },
+            { word: 'khen', rhyme: 'en' },
+            { word: 'cam', rhyme: 'am' },
+            { word: 'tắm', rhyme: 'ăm' },
+            { word: 'chân', rhyme: 'ân' },
+            { word: 'bốn', rhyme: 'ôn' }
+        ];
+
+        // Stage 3 Sentences: 5 Questions (20 pts each = 100 pts)
+        const STAGE3_SENTENCES = [
+            { id: 1, words: ['Bé Vân', 'và', 'bé An', 'là', 'bạn thân.'] },
+            { id: 2, words: ['Bé', 'lon ton', 'ra ngõ', 'đón bà.'] },
+            { id: 3, words: ['Bạn An', 'cho bé', 'món quà', 'ý nghĩa.'] },
+            { id: 4, words: ['Bé nặn', 'con', 'ngựa vằn.'] },
+            { id: 5, words: ['Mẹ cho', 'bé', 'về', 'Côn Sơn.'] }
+        ];
+
+        /* ==========================================================================
+           2. GAME STATE MANAGEMENT
+           ========================================================================== */
+        let gameState = {
+            studentName: '',
+            score: 0,
+            soundEnabled: true,
+            currentStage: 1,
+            
+            // Stage 1
+            s1Index: 0,
+            s1CurrentConsonant: null,
+            s1CurrentRhyme: null,
+            
+            // Stage 2
+            s2RemainingBees: [],
+            
+            // Stage 3
+            s3Index: 0,
+            s3CurrentSlots: []
+        };
+
+        /* ==========================================================================
+           3. AUDIO & SPEECH SYNTHESIS ENGINE (VIETNAMESE TTS)
+           ========================================================================== */
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioCtx();
+            }
+        }
+
+        // Vietnamese Speech Synthesis
+        function speakVietnamese(text) {
+            if (!gameState.soundEnabled || !('speechSynthesis' in window)) return;
+            try {
+                window.speechSynthesis.cancel(); // stop previous speech
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'vi-VN';
+                utterance.rate = 0.85; // slightly slower for grade 1 kids
+                utterance.pitch = 1.1;  // cheerful pitch
+                window.speechSynthesis.speak(utterance);
+            } catch (e) {
+                console.log("Speech synthesis error or not supported.");
+            }
+        }
+
+        // Compliments list for TTS
+        const COMPLIMENTS = ["Xuất sắc!", "Con giỏi lắm!", "Chính xác!", "Tuyệt vời!"];
+
+        function getRandomCompliment() {
+            return COMPLIMENTS[Math.floor(Math.random() * COMPLIMENTS.length)];
+        }
+
+        function playSound(type, textToSpeak = null) {
+            if (!gameState.soundEnabled) return;
+            try {
+                initAudio();
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'correct') {
+                    // Chimes sound + Celebration
+                    const now = audioCtx.currentTime;
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, now); // C5
+                    osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.1); // E5
+                    osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.2); // G5
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    osc.start(now);
+                    osc.stop(now + 0.4);
+
+                    // Confetti and celebration
+                    triggerConfetti();
+
+                    // Speak word and compliment
+                    if (textToSpeak) {
+                        setTimeout(() => {
+                            speakVietnamese(`${textToSpeak}. ${getRandomCompliment()}`);
+                        }, 200);
+                    }
+                } else if (type === 'wrong') {
+                    // Soft low buzz sound
+                    const now = audioCtx.currentTime;
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(220, now); // A3
+                    osc.frequency.exponentialRampToValueAtTime(160, now + 0.2);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                } else if (type === 'win') {
+                    // Celebration fanfare
+                    const now = audioCtx.currentTime;
+                    const notes = [440, 554.37, 659.25, 880];
+                    notes.forEach((freq, idx) => {
+                        const noteOsc = audioCtx.createOscillator();
+                        const noteGain = audioCtx.createGain();
+                        noteOsc.connect(noteGain);
+                        noteGain.connect(audioCtx.destination);
+                        noteOsc.type = 'sine';
+                        noteOsc.frequency.value = freq;
+                        noteGain.gain.setValueAtTime(0.25, now + idx * 0.1);
+                        noteGain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.1 + 0.3);
+                        noteOsc.start(now + idx * 0.1);
+                        noteOsc.stop(now + idx * 0.1 + 0.3);
+                    });
+                }
+            } catch (e) {
+                console.log('Audio playback prevented or unsupported.');
+            }
+        }
+
+        /* ==========================================================================
+           4. DOM ELEMENTS & INITIALIZATION
+           ========================================================================== */
+        const screens = {
+            start: document.getElementById('screen-start'),
+            stage1: document.getElementById('screen-stage-1'),
+            stage2: document.getElementById('screen-stage-2'),
+            stage3: document.getElementById('screen-stage-3'),
+            end: document.getElementById('screen-end')
+        };
+
+        const inputStudentName = document.getElementById('input-student-name');
+        const studentDisplayName = document.getElementById('student-display-name');
+        const scoreText = document.getElementById('score-text');
+        const progressBar = document.getElementById('progress-bar');
+        const progressContainer = document.getElementById('progress-container');
+        const gameStatusBar = document.getElementById('game-status-bar');
+        const stageBadgeText = document.getElementById('stage-badge-text');
+
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('btn-start').addEventListener('click', handleStartGame);
+            document.getElementById('sound-toggle-btn').addEventListener('click', toggleSound);
+
+            document.getElementById('btn-to-stage-2').addEventListener('click', () => switchStage(2));
+            document.getElementById('btn-to-stage-3').addEventListener('click', () => switchStage(3));
+
+            document.getElementById('s1-btn-speak-word').addEventListener('click', () => {
+                const word = STAGE1_DATA[gameState.s1Index].fullWord;
+                speakVietnamese(word);
+            });
+
+            document.getElementById('btn-check-sentence').addEventListener('click', checkStage3Sentence);
+            document.getElementById('btn-reset-sentence').addEventListener('click', resetStage3Sentence);
+
+            document.getElementById('btn-replay').addEventListener('click', resetGameToStart);
+            document.getElementById('btn-view-results').addEventListener('click', () => showScreen('end'));
+        });
+
+        function toggleSound() {
+            gameState.soundEnabled = !gameState.soundEnabled;
+            const icon = document.getElementById('sound-icon');
+            if (gameState.soundEnabled) {
+                icon.className = 'fa-solid fa-volume-high';
+            } else {
+                icon.className = 'fa-solid fa-volume-xmark';
+                if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+            }
+        }
+
+        function addScore(points) {
+            gameState.score += points;
+            scoreText.innerText = gameState.score;
+        }
+
+        function updateProgress(percent) {
+            progressBar.style.width = `${percent}%`;
+        }
+
+        function showScreen(screenKey) {
+            Object.keys(screens).forEach(key => {
+                if (key === screenKey) {
+                    screens[key].classList.remove('hidden');
+                } else {
+                    screens[key].classList.add('hidden');
+                }
+            });
+        }
+
+        /* ==========================================================================
+           5. START GAME & NAVIGATION
+           ========================================================================== */
+        function handleStartGame() {
+            const name = inputStudentName.value.trim();
+            const errorMsg = document.getElementById('name-error-msg');
+
+            if (!name) {
+                errorMsg.classList.remove('hidden');
+                inputStudentName.focus();
+                return;
+            }
+            errorMsg.classList.add('hidden');
+
+            gameState.studentName = name;
+            gameState.score = 0;
+            scoreText.innerText = '0';
+            studentDisplayName.innerText = `Học sinh: ${name}`;
+
+            gameStatusBar.classList.remove('hidden');
+            progressContainer.classList.remove('hidden');
+
+            switchStage(1);
+        }
+
+        function switchStage(stageNum) {
+            gameState.currentStage = stageNum;
+
+            if (stageNum === 1) {
+                stageBadgeText.innerText = 'Chặng 1';
+                updateProgress(10);
+                showScreen('stage1');
+                initStage1();
+            } else if (stageNum === 2) {
+                stageBadgeText.innerText = 'Chặng 2';
+                updateProgress(45);
+                showScreen('stage2');
+                initStage2();
+            } else if (stageNum === 3) {
+                stageBadgeText.innerText = 'Chặng 3';
+                updateProgress(80);
+                showScreen('stage3');
+                initStage3();
+            } else if (stageNum === 4) {
+                updateProgress(100);
+                showScreen('end');
+                document.getElementById('end-student-name').innerText = `Học sinh: ${gameState.studentName}`;
+                document.getElementById('end-total-score').innerText = gameState.score;
+                playSound('win');
+                speakVietnamese("Cô Mai Ly chúc mừng con đã hoàn thành bài tập!");
+            }
+        }
+
+        /* ==========================================================================
+           6. STAGE 1 LOGIC (BOTH CONSONANT & RHYME EMPTY)
+           ========================================================================== */
+        function initStage1() {
+            gameState.s1Index = 0;
+            renderStage1Question();
+        }
+
+        function renderStage1Question() {
+            const currentData = STAGE1_DATA[gameState.s1Index];
+            gameState.s1CurrentConsonant = null;
+            gameState.s1CurrentRhyme = null;
+
+            document.getElementById('stage1-counter').innerText = `Câu ${gameState.s1Index + 1}/${STAGE1_DATA.length}`;
+            document.getElementById('s1-target-word').innerText = currentData.fullWord;
+            
+            // Speak target word
+            setTimeout(() => speakVietnamese(currentData.fullWord), 300);
+
+            // Consonant Slot
+            const consSlot = document.getElementById('consonant-slot');
+            consSlot.innerText = '?';
+            consSlot.className = 'drop-zone w-16 h-16 md:w-20 md:h-20 bg-white rounded-2xl border-4 border-pink-400 border-dashed flex items-center justify-center text-2xl md:text-3xl font-black text-pink-600 shadow-sm';
+
+            // Rhyme Slot
+            const rhymeSlot = document.getElementById('rhyme-slot');
+            rhymeSlot.innerText = '?';
+            rhymeSlot.className = 'drop-zone w-16 h-16 md:w-20 md:h-20 bg-white rounded-2xl border-4 border-emerald-400 border-dashed flex items-center justify-center text-2xl md:text-3xl font-black text-emerald-700 shadow-sm';
+
+            document.getElementById('s1-feedback').innerText = '';
+            document.getElementById('s1-next-box').classList.add('hidden');
+
+            // Render Consonant Cards
+            const consContainer = document.getElementById('s1-consonant-options');
+            consContainer.innerHTML = '';
+            const shuffledCons = [...currentData.consOptions].sort(() => Math.random() - 0.5);
+
+            shuffledCons.forEach(cons => {
+                const card = document.createElement('div');
+                card.className = 'draggable-item w-14 h-14 md:w-16 md:h-16 bg-pink-400 hover:bg-pink-500 text-white rounded-2xl border-b-4 border-pink-600 flex items-center justify-center text-xl md:text-2xl font-black shadow-md cursor-pointer';
+                card.innerText = cons;
+                card.setAttribute('data-value', cons);
+                card.setAttribute('data-type', 'consonant');
+
+                attachMultiDropEvents(card, [consSlot], (targetAttr) => {
+                    handleStage1SlotDrop(cons, 'consonant', currentData);
+                });
+
+                consContainer.appendChild(card);
+            });
+
+            // Render Rhyme Cards
+            const rhymeContainer = document.getElementById('s1-rhyme-options');
+            rhymeContainer.innerHTML = '';
+            const shuffledRhymes = [...currentData.rhymeOptions].sort(() => Math.random() - 0.5);
+
+            shuffledRhymes.forEach(rhyme => {
+                const card = document.createElement('div');
+                card.className = 'draggable-item w-14 h-14 md:w-16 md:h-16 bg-emerald-400 hover:bg-emerald-500 text-white rounded-2xl border-b-4 border-emerald-600 flex items-center justify-center text-xl md:text-2xl font-black shadow-md cursor-pointer';
+                card.innerText = rhyme;
+                card.setAttribute('data-value', rhyme);
+                card.setAttribute('data-type', 'rhyme');
+
+                attachMultiDropEvents(card, [rhymeSlot], (targetAttr) => {
+                    handleStage1SlotDrop(rhyme, 'rhyme', currentData);
+                });
+
+                rhymeContainer.appendChild(card);
+            });
+
+            // Animate truck
+            const truck = document.getElementById('truck-element');
+            truck.classList.remove('truck-enter');
+            void truck.offsetWidth;
+            truck.classList.add('truck-enter');
+        }
+
+        function handleStage1SlotDrop(val, type, currentData) {
+            const feedback = document.getElementById('s1-feedback');
+
+            if (type === 'consonant') {
+                gameState.s1CurrentConsonant = val;
+                const slot = document.getElementById('consonant-slot');
+                slot.innerText = val;
+                slot.classList.add('filled');
+            } else if (type === 'rhyme') {
+                gameState.s1CurrentRhyme = val;
+                const slot = document.getElementById('rhyme-slot');
+                slot.innerText = val;
+                slot.classList.add('filled');
+            }
+
+            // Check when both slots are filled
+            if (gameState.s1CurrentConsonant && gameState.s1CurrentRhyme) {
+                if (gameState.s1CurrentConsonant === currentData.consonant && gameState.s1CurrentRhyme === currentData.rhyme) {
+                    // Both correct
+                    playSound('correct', currentData.fullWord);
+                    feedback.className = 'h-10 flex items-center justify-center font-extrabold text-lg text-emerald-600';
+                    feedback.innerText = `🌟 Đúng rồi! Bé ghép được tiếng "${currentData.fullWord}"! (+10 điểm)`;
+                    addScore(10);
+
+                    setTimeout(() => {
+                        gameState.s1Index++;
+                        if (gameState.s1Index < STAGE1_DATA.length) {
+                            renderStage1Question();
+                        } else {
+                            feedback.innerText = '🎉 Chúc mừng con đã hoàn thành Chặng 1!';
+                            document.getElementById('s1-next-box').classList.remove('hidden');
+                        }
+                    }, 1500);
+
+                } else {
+                    // Wrong combination
+                    playSound('wrong');
+                    feedback.className = 'h-10 flex items-center justify-center font-extrabold text-lg text-rose-500';
+                    feedback.innerText = 'Chưa đúng rồi! Con thử lại nhé!';
+                }
+            }
+        }
+
+        /* ==========================================================================
+           7. STAGE 2 LOGIC (BEE HIVES)
+           ========================================================================== */
+        function initStage2() {
+            gameState.s2RemainingBees = [...STAGE2_BEES];
+            renderStage2();
+        }
+
+        function renderStage2() {
+            document.getElementById('s2-feedback').innerText = '';
+            document.getElementById('s2-next-box').classList.add('hidden');
+            
+            const hivesContainer = document.getElementById('s2-hives-container');
+            hivesContainer.innerHTML = '';
+
+            STAGE2_RHYMES.forEach(rhyme => {
+                const hive = document.createElement('div');
+                hive.className = 'drop-zone bg-amber-100 border-2 border-amber-300 rounded-2xl p-2 flex flex-col items-center justify-center shadow-sm relative min-h-[85px]';
+                hive.setAttribute('data-rhyme', rhyme);
+
+                hive.innerHTML = `
+                    <div class="text-2xl">🍯</div>
+                    <div class="font-black text-amber-800 text-base md:text-lg">${rhyme}</div>
+                    <div class="dropped-bees flex flex-wrap gap-1 justify-center mt-1"></div>
+                `;
+
+                hivesContainer.appendChild(hive);
+            });
+
+            renderBeesList();
+        }
+
+        function renderBeesList() {
+            const beesContainer = document.getElementById('s2-bees-container');
+            beesContainer.innerHTML = '';
+
+            document.getElementById('stage2-counter').innerText = `Còn ${gameState.s2RemainingBees.length} chú ong`;
+
+            if (gameState.s2RemainingBees.length === 0) {
+                document.getElementById('s2-feedback').className = 'h-8 flex items-center justify-center font-extrabold text-lg text-emerald-600';
+                document.getElementById('s2-feedback').innerText = '🎉 Xuất sắc! Con đã đưa tất cả ong về đúng tổ!';
+                document.getElementById('s2-next-box').classList.remove('hidden');
+                return;
+            }
+
+            gameState.s2RemainingBees.forEach((beeObj, idx) => {
+                const bee = document.createElement('div');
+                bee.className = 'draggable-item animate-float bg-yellow-300 border-2 border-yellow-500 rounded-full px-3 py-1.5 flex items-center space-x-1 shadow-md cursor-pointer font-extrabold text-amber-900 text-sm md:text-base';
+                bee.innerHTML = `<span>🐝</span><span>${beeObj.word}</span>`;
+                bee.setAttribute('data-word', beeObj.word);
+                bee.setAttribute('data-rhyme', beeObj.rhyme);
+
+                const allHives = document.querySelectorAll('#s2-hives-container .drop-zone');
+                attachMultiDropEvents(bee, allHives, (droppedRhyme) => {
+                    handleStage2Drop(beeObj, droppedRhyme, idx);
+                });
+
+                beesContainer.appendChild(bee);
+            });
+        }
+
+        function handleStage2Drop(beeObj, droppedRhyme, beeIndex) {
+            const feedback = document.getElementById('s2-feedback');
+
+            if (beeObj.rhyme === droppedRhyme) {
+                playSound('correct', beeObj.word);
+                addScore(10);
+
+                const matchedHive = document.querySelector(`#s2-hives-container [data-rhyme="${droppedRhyme}"] .dropped-bees`);
+                if (matchedHive) {
+                    const badge = document.createElement('span');
+                    badge.className = 'text-xs bg-yellow-200 text-yellow-900 font-bold px-1.5 py-0.5 rounded-full border border-yellow-400';
+                    badge.innerText = beeObj.word;
+                    matchedHive.appendChild(badge);
+                }
+
+                feedback.className = 'h-8 flex items-center justify-center font-extrabold text-lg text-emerald-600';
+                feedback.innerText = `🐝 Bé đã đưa từ "${beeObj.word}" về tổ vần "${droppedRhyme}"! (+10 điểm)`;
+
+                gameState.s2RemainingBees.splice(beeIndex, 1);
+                renderBeesList();
+
+            } else {
+                playSound('wrong');
+                feedback.className = 'h-8 flex items-center justify-center font-extrabold text-lg text-rose-500';
+                feedback.innerText = 'Con hãy đọc lại vần nhé!';
+            }
+        }
+
+        /* ==========================================================================
+           8. STAGE 3 LOGIC (CLOUD SENTENCES)
+           ========================================================================== */
+        function initStage3() {
+            gameState.s3Index = 0;
+            renderStage3Question();
+        }
+
+        function renderStage3Question() {
+            const currentSentence = STAGE3_SENTENCES[gameState.s3Index];
+            document.getElementById('stage3-counter').innerText = `Câu ${gameState.s3Index + 1}/${STAGE3_SENTENCES.length}`;
+            document.getElementById('s3-feedback').innerText = '';
+
+            const numSlots = currentSentence.words.length;
+            gameState.s3CurrentSlots = new Array(numSlots).fill(null);
+
+            const slotsContainer = document.getElementById('s3-sentence-slots');
+            slotsContainer.innerHTML = '';
+
+            for (let i = 0; i < numSlots; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'drop-zone w-28 md:w-36 h-14 md:h-16 bg-white border-2 border-dashed border-sky-400 rounded-2xl flex flex-col items-center justify-center relative shadow-sm';
+                slot.setAttribute('data-slot-index', i);
+
+                slot.innerHTML = `
+                    <span class="text-xs text-sky-400 font-bold absolute top-1 left-2">${i + 1}</span>
+                    <div class="slot-content font-extrabold text-sky-800 text-sm md:text-base"></div>
+                `;
+
+                slotsContainer.appendChild(slot);
+            }
+
+            const shuffledWords = currentSentence.words.map((w, idx) => ({ word: w, origIdx: idx })).sort(() => Math.random() - 0.5);
+            renderCloudBank(shuffledWords);
+        }
+
+        function renderCloudBank(wordsList) {
+            const cloudBank = document.getElementById('s3-cloud-bank');
+            cloudBank.innerHTML = '';
+
+            wordsList.forEach((item) => {
+                const cloud = document.createElement('div');
+                cloud.className = 'draggable-item bg-sky-200 hover:bg-sky-300 text-sky-900 border-2 border-sky-400 font-extrabold text-sm md:text-base px-4 py-2 rounded-full shadow cursor-pointer animate-float';
+                cloud.innerText = item.word;
+
+                const allSlots = document.querySelectorAll('#s3-sentence-slots .drop-zone');
+                attachMultiDropEvents(cloud, allSlots, (slotIndexStr) => {
+                    const slotIdx = parseInt(slotIndexStr, 10);
+                    placeCloudInSlot(item.word, slotIdx, cloud);
+                });
+
+                cloudBank.appendChild(cloud);
+            });
+        }
+
+        function placeCloudInSlot(word, slotIdx, cloudElement) {
+            gameState.s3CurrentSlots[slotIdx] = word;
+            
+            const targetSlot = document.querySelectorAll('#s3-sentence-slots .drop-zone')[slotIdx];
+            if (targetSlot) {
+                const contentArea = targetSlot.querySelector('.slot-content');
+                contentArea.innerText = word;
+                targetSlot.classList.add('bg-sky-100', 'border-sky-500');
+            }
+
+            cloudElement.style.visibility = 'hidden';
+            cloudElement.style.pointerEvents = 'none';
+
+            // Nếu đã điền đủ tất cả ô chữ trong câu, nhắc bé đọc to TRƯỚC KHI bấm nút kiểm tra
+            if (!gameState.s3CurrentSlots.includes(null)) {
+                const feedback = document.getElementById('s3-feedback');
+                feedback.className = 'h-8 flex items-center justify-center font-extrabold text-lg text-amber-700 animate-bounce';
+                feedback.innerText = '👉 Con hãy đọc to câu vừa ghép rồi bấm nút KIỂM TRA CÂU nhé!';
+                speakVietnamese("Con hãy đọc to câu vừa ghép rồi bấm nút Kiểm tra câu nhé!");
+            }
+        }
+
+        function resetStage3Sentence() {
+            renderStage3Question();
+        }
+
+        function checkStage3Sentence() {
+            const currentSentence = STAGE3_SENTENCES[gameState.s3Index];
+            const feedback = document.getElementById('s3-feedback');
+
+            if (gameState.s3CurrentSlots.includes(null)) {
+                feedback.className = 'h-8 flex items-center justify-center font-extrabold text-lg text-amber-600';
+                feedback.innerText = 'Bé hãy kéo đầy đủ các từ vào ô số nhé!';
+                speakVietnamese("Bé hãy kéo đầy đủ các từ vào ô số nhé!");
+                return;
+            }
+
+            const isCorrect = currentSentence.words.every((w, idx) => gameState.s3CurrentSlots[idx] === w);
+
+            if (isCorrect) {
+                const fullText = currentSentence.words.join(' ');
+                playSound('correct', fullText);
+                addScore(20);
+
+                feedback.className = 'h-8 flex items-center justify-center font-extrabold text-lg text-emerald-600 animate-bounce';
+                feedback.innerText = `🌟 Chính xác! Câu hoàn chỉnh: "${fullText}" (+20 điểm)`;
+
+                setTimeout(() => {
+                    gameState.s3Index++;
+                    if (gameState.s3Index < STAGE3_SENTENCES.length) {
+                        renderStage3Question();
+                    } else {
+                        switchStage(4);
+                    }
+                }, 3500);
+
+            } else {
+                playSound('wrong');
+                feedback.className = 'h-8 flex items-center justify-center font-extrabold text-lg text-rose-500';
+                feedback.innerText = 'Con hãy đọc lại từ đầu câu và kiểm tra lại nhé!';
+                speakVietnamese("Con hãy đọc lại từ đầu câu và kiểm tra lại nhé!");
+            }
+        }
+
+        /* ==========================================================================
+           9. RESET & REPLAY
+           ========================================================================== */
+        function resetGameToStart() {
+            gameState.score = 0;
+            scoreText.innerText = '0';
+            updateProgress(0);
+            gameStatusBar.classList.add('hidden');
+            progressContainer.classList.add('hidden');
+            showScreen('start');
+        }
+
+        /* ==========================================================================
+           10. UNIFIED DRAG & DROP ENGINE (TOUCH / MOUSE / POINTER EVENTS)
+           ========================================================================== */
+        function attachMultiDropEvents(dragEl, dropZoneEls, onDropCallback) {
+            let active = false;
+            let startX, startY;
+            let clone = null;
+
+            const onPointerDown = (e) => {
+                active = true;
+                e.preventDefault();
+
+                const rect = dragEl.getBoundingClientRect();
+                startX = e.clientX || (e.touches && e.touches[0].clientX);
+                startY = e.clientY || (e.touches && e.touches[0].clientY);
+
+                clone = dragEl.cloneNode(true);
+                clone.style.position = 'fixed';
+                clone.style.left = `${rect.left}px`;
+                clone.style.top = `${rect.top}px`;
+                clone.style.width = `${rect.width}px`;
+                clone.style.height = `${rect.height}px`;
+                clone.style.zIndex = '9999';
+                clone.style.opacity = '0.9';
+                clone.style.pointerEvents = 'none';
+                clone.classList.add('dragging');
+
+                document.body.appendChild(clone);
+                dragEl.style.opacity = '0.3';
+
+                window.addEventListener('pointermove', onPointerMove);
+                window.addEventListener('pointerup', onPointerUp);
+            };
+
+            const onPointerMove = (e) => {
+                if (!active || !clone) return;
+
+                const curX = e.clientX || (e.touches && e.touches[0].clientX);
+                const curY = e.clientY || (e.touches && e.touches[0].clientY);
+
+                const deltaX = curX - startX;
+                const deltaY = curY - startY;
+
+                const origRect = dragEl.getBoundingClientRect();
+                clone.style.left = `${origRect.left + deltaX}px`;
+                clone.style.top = `${origRect.top + deltaY}px`;
+
+                dropZoneEls.forEach(zone => {
+                    const zRect = zone.getBoundingClientRect();
+                    if (curX >= zRect.left && curX <= zRect.right && curY >= zRect.top && curY <= zRect.bottom) {
+                        zone.classList.add('hovered');
+                    } else {
+                        zone.classList.remove('hovered');
+                    }
+                });
+            };
+
+            const onPointerUp = (e) => {
+                if (!active) return;
+                active = false;
+
+                const curX = e.clientX || (e.changedTouches && e.changedTouches[0].clientX);
+                const curY = e.clientY || (e.changedTouches && e.changedTouches[0].clientY);
+
+                let droppedTarget = null;
+                dropZoneEls.forEach(zone => {
+                    const zRect = zone.getBoundingClientRect();
+                    if (curX >= zRect.left && curX <= zRect.right && curY >= zRect.top && curY <= zRect.bottom) {
+                        droppedTarget = zone;
+                    }
+                    zone.classList.remove('hovered');
+                });
+
+                if (clone) {
+                    clone.remove();
+                    clone = null;
+                }
+                dragEl.style.opacity = '1';
+
+                window.removeEventListener('pointermove', onPointerMove);
+                window.removeEventListener('pointerup', onPointerUp);
+
+                if (droppedTarget) {
+                    const targetAttr = droppedTarget.getAttribute('data-rhyme') || 
+                                       droppedTarget.getAttribute('data-slot-index') || 
+                                       droppedTarget.getAttribute('data-slot-type') || 
+                                       '';
+                    onDropCallback(targetAttr);
+                }
+            };
+
+            dragEl.addEventListener('pointerdown', onPointerDown);
+        }
+
+        /* ==========================================================================
+           11. CONFETTI CELEBRATION ANIMATION
+           ========================================================================== */
+        function triggerConfetti() {
+            const canvas = document.getElementById('effects-canvas');
+            const ctx = canvas.getContext('2d');
+
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const particles = [];
+            const colors = ['#f472b6', '#34d399', '#fbbf24', '#60a5fa', '#a78bfa'];
+
+            for (let i = 0; i < 70; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height - canvas.height,
+                    size: Math.random() * 8 + 6,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    vy: Math.random() * 3 + 2,
+                    vx: Math.random() * 2 - 1,
+                    rotation: Math.random() * 360
+                });
+            }
+
+            function animateConfetti() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                let alive = false;
+                particles.forEach(p => {
+                    p.y += p.vy;
+                    p.x += p.vx;
+                    p.rotation += 3;
+
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate((p.rotation * Math.PI) / 180);
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                    ctx.restore();
+
+                    if (p.y < canvas.height) alive = true;
+                });
+
+                if (alive) {
+                    requestAnimationFrame(animateConfetti);
+                } else {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+            }
+
+            animateConfetti();
+        }
+    </script>
+</body>
+</html>
